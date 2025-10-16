@@ -78,9 +78,13 @@
             transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
             outline: none;
             display: grid; place-items: center;
+            touch-action: manipulation;
+            -webkit-user-select: none; user-select: none;
+            pointer-events: auto;
         }
         .star[disabled] { opacity: 0.5; cursor: not-allowed; }
         .stars .star { display: inline-grid; }
+        .stars { pointer-events: auto; }
         .star:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.35); }
         .star:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -243,9 +247,15 @@
             });
         });
 
-        // Click/tap
+        // Click/tap (mobile-safe)
         starButtons.forEach((btn, i) => {
-            btn.addEventListener('click', () => handleRate(i));
+            const fire = () => handleRate(i);
+            btn.addEventListener('click', fire);
+            btn.addEventListener('pointerdown', (e) => {
+                // Only primary pointer to avoid duplicate events
+                if (e.pointerType === 'mouse') return; fire();
+            }, { passive: true });
+            btn.addEventListener('touchstart', () => fire(), { passive: true });
         });
 
         function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch(_){} }
