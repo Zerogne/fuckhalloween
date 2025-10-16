@@ -249,13 +249,10 @@
 
         // Click/tap (mobile-safe)
         starButtons.forEach((btn, i) => {
-            const fire = () => handleRate(i);
-            btn.addEventListener('click', fire);
-            btn.addEventListener('pointerdown', (e) => {
-                // Only primary pointer to avoid duplicate events
-                if (e.pointerType === 'mouse') return; fire();
-            }, { passive: true });
-            btn.addEventListener('touchstart', () => fire(), { passive: true });
+            const fire = (e) => { if (e) e.preventDefault(); handleRate(i); };
+            btn.addEventListener('click', fire, { passive: false });
+            btn.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') fire(e); }, { passive: false });
+            btn.addEventListener('touchend', fire, { passive: false });
         });
 
         function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch(_){} }
@@ -264,7 +261,7 @@
             if (inProgress) return; // debounce
             setChecked(idx); currentIndex = idx;
 
-            if (disableScare.checked) {
+            if (disableScare && disableScare.checked) {
                 alert('Thanks! Hope your day brightens.');
                 cheeky.textContent = 'Thanks for sharing. Happy Dreamscape Day.';
                 return;
