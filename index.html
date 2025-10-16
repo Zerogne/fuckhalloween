@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dreamscape Day</title>
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b1020" />
+    <!-- Preload assets you can replace in /assets/ -->
+    <link rel="preload" as="video" href="assets/scare.mp4">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg1: #0b1020;          /* midnight blue */
+            --bg2: #1b0f33;          /* deep purple */
+            --text: #f2f2f7;         /* off-white */
+            --muted: #a7a8b3;        /* subtle */
+            --accent: #ff6b00;       /* pumpkin */
+            --accent-2: #8a2be2;     /* purple accent */
+            --overlayMs: 2500ms;     /* scare duration */
+            --radius: 16px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(120% 80% at 50% 0%, rgba(138,43,226,0.15), rgba(0,0,0,0) 40%),
+                radial-gradient(80% 60% at 50% 100%, rgba(255,107,0,0.08), rgba(0,0,0,0) 35%),
+                linear-gradient(180deg, var(--bg1), var(--bg2));
+            min-height: 100dvh;
+            display: grid;
+            place-items: center;
+            overflow-x: hidden;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
+        .page {
+            width: min(92vw, 720px);
+            padding: 28px 20px calc(20px + env(safe-area-inset-bottom, 0));
+            text-align: center;
+            position: relative;
+        }
+
+        .title {
+            font-family: 'Cinzel Decorative', Georgia, 'Times New Roman', serif;
+            font-size: clamp(28px, 7vw, 56px);
+            margin: 4px 0 18px 0;
+            text-shadow: 0 0 10px rgba(255,255,255,0.08), 0 0 28px rgba(255,107,0,0.25);
+        }
+
+        .question {
+            font-size: clamp(18px, 4.8vw, 28px);
+            margin: 10px 0 12px 0;
+        }
+
+        .rating { display: block; margin: 8px 0 12px 0; }
+        .stars { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: nowrap; }
+
+        .star {
+            width: 56px; height: 56px;
+            padding: 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(2px);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+            outline: none;
+            display: grid; place-items: center;
+        }
+        .star[disabled] { opacity: 0.5; cursor: not-allowed; }
+        .stars .star { display: inline-grid; }
+        .star:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.35); }
+        .star:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .star svg { width: 100%; height: 100%; display: block; }
+        .star path { fill: transparent; stroke: rgba(255,255,255,0.7); stroke-width: 2; }
+
+        .stars[data-hover="1"] .star:nth-child(-n+1) path,
+        .stars[data-hover="2"] .star:nth-child(-n+2) path,
+        .stars[data-hover="3"] .star:nth-child(-n+3) path,
+        .stars[data-hover="4"] .star:nth-child(-n+4) path,
+        .stars[data-hover="5"] .star:nth-child(-n+5) path { fill: rgba(255,107,0,0.9); stroke: rgba(255,107,0,1); }
+
+        .cheeky { margin-top: 8px; color: var(--muted); min-height: 1.2em; }
+
+        .footer {
+            margin-top: 22px;
+            color: var(--muted);
+            display: grid; gap: 10px;
+            place-items: center;
+        }
+        .toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; }
+        .toggle input { width: 18px; height: 18px; }
+
+        /* Overlay */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.92);
+            display: none; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .overlay.show { display: flex; }
+        .overlay-img { width: 100vw; height: 100vh; object-fit: contain; }
+        .overlay-embed { position: absolute; inset: 0; width: 100vw; height: 100vh; border: 0; }
+        .tap-hint { position: absolute; bottom: 24px; color: var(--muted); font-size: 14px; }
+
+        /* Optional flicker */
+        @keyframes flicker { 0%{opacity:1} 10%{opacity:0.85} 20%{opacity:1} 30%{opacity:0.75} 40%{opacity:1} 50%{opacity:0.9} 60%{opacity:1} 70%{opacity:0.8} 80%{opacity:1} 90%{opacity:0.88} 100%{opacity:1} }
+        .overlay-img.flicker { animation: flicker 180ms linear infinite; }
+
+        /* Toast */
+        .toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: rgba(20,22,34,0.9); color: var(--text); border: 1px solid rgba(255,255,255,0.08); padding: 10px 12px; border-radius: 10px; box-shadow: 0 8px 18px rgba(0,0,0,0.35); z-index: 1200; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+        .toast.show { opacity: 1; }
+
+        /* Background fog/noise (optional) */
+        .fog { position: absolute; inset: -10% -50% -10% -50%; background: radial-gradient(closest-side, rgba(255,255,255,0.06), rgba(255,255,255,0) 60%) 0 0 / 22% 22% repeat; filter: blur(18px); opacity: 0.28; pointer-events: none; z-index: -1; animation: fog-move 60s linear infinite; }
+        @keyframes fog-move { 0% { transform: translateX(0) translateY(0); } 50% { transform: translateX(6%) translateY(2%); } 100% { transform: translateX(0) translateY(0); } }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { animation: none !important; transition: none !important; }
+            .overlay-img { animation: none !important; }
+        }
+
+        /* Mobile tweaks */
+        @media (max-width: 480px) {
+            .title { font-size: clamp(24px, 7.6vw, 34px); }
+            .question { font-size: clamp(18px, 5.2vw, 21px); margin-bottom: 6px; }
+            .stars { gap: 10px; }
+            .star { width: 54px; height: 54px; padding: 8px; border-radius: 14px; }
+            .footer { margin-top: 18px; }
+            .toggle input { width: 22px; height: 22px; }
+            .toast { left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0)); }
+        }
+
+        @supports (height: 100svh) {
+            body { min-height: 100svh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page" id="page">
+        <div class="fog" aria-hidden="true"></div>
+        <h1 class="title">Dreamscape Day</h1>
+        <div class="question" id="question">How was your day?</div>
+        <div class="rating">
+            <div class="stars" id="stars" role="radiogroup" aria-label="Rate your day">
+                <button class="star" role="radio" aria-label="1 star" aria-checked="false" tabindex="0">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.95 6 6.55.57-4.92 4.2 1.48 6.23L12 16.9 5.94 19l1.48-6.23-4.92-4.2 6.55-.57z"/></svg>
+                </button>
+                <button class="star" role="radio" aria-label="2 stars" aria-checked="false" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.95 6 6.55.57-4.92 4.2 1.48 6.23L12 16.9 5.94 19l1.48-6.23-4.92-4.2 6.55-.57z"/></svg>
+                </button>
+                <button class="star" role="radio" aria-label="3 stars" aria-checked="false" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.95 6 6.55.57-4.92 4.2 1.48 6.23L12 16.9 5.94 19l1.48-6.23-4.92-4.2 6.55-.57z"/></svg>
+                </button>
+                <button class="star" role="radio" aria-label="4 stars" aria-checked="false" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.95 6 6.55.57-4.92 4.2 1.48 6.23L12 16.9 5.94 19l1.48-6.23-4.92-4.2 6.55-.57z"/></svg>
+                </button>
+                <button class="star" role="radio" aria-label="5 stars" aria-checked="false" tabindex="-1">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.95 6 6.55.57-4.92 4.2 1.48 6.23L12 16.9 5.94 19l1.48-6.23-4.92-4.2 6.55-.57z"/></svg>
+                </button>
+            </div>
+        </div>
+        <div id="cheeky" class="cheeky" aria-live="polite"></div>
+        <div class="footer">
+            <label class="toggle">
+                <input type="checkbox" id="disableScare"> Disable scare
+            </label>
+            <div>Thanks for sharing your mood.</div>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay" aria-hidden="true">
+        <!-- YouTube embed (autoplay muted; upgraded to sound on tap) -->
+        <iframe id="ytPlayer" class="overlay-embed" src="https://www.youtube.com/embed/h-w77wcjrGY?autoplay=1&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1&enablejsapi=1&iv_load_policy=3" title="Jumpscare" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        <div id="tapHint" class="tap-hint" hidden>Tap to enable sound</div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite">Gotcha 👻</div>
+    <div id="srStatus" aria-live="polite" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">Loading…</div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        // YouTube IFrame API setup
+        let ytPlayer = null; let ytReady = false;
+        window.onYouTubeIframeAPIReady = function () {
+            ytPlayer = new YT.Player('ytPlayer', {
+                events: {
+                    onReady: () => { ytReady = true; },
+                    onStateChange: (e) => {
+                        // When starts playing, attempt to unmute quickly if still muted
+                        if (e.data === YT.PlayerState.PLAYING) {
+                            try { ytPlayer.unMute(); ytPlayer.setVolume(90); } catch(_){}
+                        }
+                    },
+                    onError: () => {}
+                }
+            });
+        };
+
+        const starsRoot = document.getElementById('stars');
+        const starButtons = Array.from(document.querySelectorAll('.star'));
+        const overlay = document.getElementById('overlay');
+        const toast = document.getElementById('toast');
+        const srStatus = document.getElementById('srStatus');
+        const cheeky = document.getElementById('cheeky');
+        const disableScare = document.getElementById('disableScare');
+        const tapHint = document.getElementById('tapHint');
+
+        let mediaReady = true; let inProgress = false; let currentIndex = 0; // Assume ready for YT
+
+        function maybeEnable() {
+            srStatus.textContent = mediaReady ? 'Ready' : 'Ready (media pending)';
+            starButtons.forEach((b, i) => { b.removeAttribute('disabled'); b.tabIndex = i === 0 ? 0 : -1; });
+        }
+
+        function setChecked(idx) {
+            starButtons.forEach((b, i) => {
+                b.setAttribute('aria-checked', i <= idx ? 'true' : 'false');
+                b.tabIndex = i === idx ? 0 : -1;
+            });
+        }
+
+        // Hover highlight up to current star
+        starButtons.forEach((btn, i) => {
+            btn.addEventListener('mouseenter', () => starsRoot.setAttribute('data-hover', String(i+1)));
+            btn.addEventListener('mouseleave', () => starsRoot.removeAttribute('data-hover'));
+        });
+
+        // Keyboard navigation
+        starButtons.forEach((btn, i) => {
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); currentIndex = (i + 1) % starButtons.length; starButtons[currentIndex].focus(); setChecked(currentIndex); }
+                else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); currentIndex = (i - 1 + starButtons.length) % starButtons.length; starButtons[currentIndex].focus(); setChecked(currentIndex); }
+                else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRate(i); }
+            });
+        });
+
+        // Click/tap
+        starButtons.forEach((btn, i) => {
+            btn.addEventListener('click', () => handleRate(i));
+        });
+
+        function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch(_){} }
+
+        async function handleRate(idx) {
+            if (inProgress) return; // debounce
+            setChecked(idx); currentIndex = idx;
+
+            if (disableScare.checked) {
+                alert('Thanks! Hope your day brightens.');
+                cheeky.textContent = 'Thanks for sharing. Happy Dreamscape Day.';
+                return;
+            }
+
+            inProgress = true;
+            srStatus.textContent = 'Starting scare';
+            document.body.style.overflow = 'hidden';
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
+            vibrate(10);
+
+            // No flicker control for iframe; keep hint logic only
+
+            srStatus.textContent = 'Attempting autoplay…';
+            let audioStarted = false;
+            const tryPlayYT = () => {
+                if (!ytReady || !ytPlayer) return false;
+                try {
+                    // Start muted first (safest), then immediately try to unmute within the same gesture
+                    ytPlayer.mute();
+                    ytPlayer.playVideo();
+                    try { ytPlayer.unMute(); ytPlayer.setVolume(90); } catch(_){}
+                    return true;
+                } catch (_) { return false; }
+            };
+            // Start muted (allowed), then upgrade on tap
+            if (!tryPlayYT()) {
+                // Retry shortly after API ready
+                setTimeout(tryPlayYT, 300);
+            }
+            // If sound still blocked, show tap hint
+            tapHint.hidden = false; tapHint.textContent = 'Tap for sound';
+            const enableSound = () => {
+                tapHint.hidden = true;
+                try { ytPlayer.unMute(); ytPlayer.setVolume(90); ytPlayer.playVideo(); } catch(_){}
+                overlay.removeEventListener('pointerdown', enableSound);
+                ytFrame.removeEventListener('pointerdown', enableSound);
+            };
+            overlay.addEventListener('pointerdown', enableSound, { once: true });
+            ytFrame.addEventListener('pointerdown', enableSound, { once: true });
+
+            setTimeout(() => {
+                try { ytPlayer && ytPlayer.stopVideo && ytPlayer.stopVideo(); } catch(_){}
+                overlay.classList.remove('show');
+                overlay.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+                cheeky.textContent = 'Gotcha. Happy Dreamscape Day.';
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 1600);
+                inProgress = false;
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
